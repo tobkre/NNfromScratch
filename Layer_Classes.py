@@ -103,7 +103,12 @@ class HiddenLayer(Layer):
     """
     def __init__(self, n_input, n_nodes, X_in=None, dropout_rate=0, activation='linear', seed=None):
         Layer.__init__(self, X_in=X_in, n_input=n_input, n_nodes=n_nodes, activation=activation, seed=seed)
-        self.R = np.random.binomial(size=(n_input, n_nodes), n=1, p=1-dropout_rate)
+        self.n_input = n_input
+        self.n_nodes = n_nodes
+        self.draw_dropout_sample(dropout_rate=dropout_rate)
+    
+    def draw_dropout_sample(self, dropout_rate):
+        self.R = np.random.binomial(size=(self.n_input, self.n_nodes), n=1, p=1-dropout_rate)
         
     def print_w(self):
         print(self.W)

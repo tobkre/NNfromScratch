@@ -39,7 +39,7 @@ class MLP:
         for i in range(self.n_hidden_layers):
             idf='hidden'+str(i)
             n_nodes = self.n_nodes_hidden[i]
-            layer = HiddenLayer(n_input=n_in, n_nodes=n_nodes, activation='sigmoid')
+            layer = HiddenLayer(n_input=n_in, n_nodes=n_nodes, dropout_rate=0, activation='sigmoid')
             n_in = n_nodes
             self.Layers[idf] = layer
         out_layer = OutputLayer(n_input = n_in, n_nodes=self.n_nodes_output)
@@ -48,11 +48,12 @@ class MLP:
     def train_on_data(self, X_train, y_train, train_opts):
         epochs = train_opts['epochs']
         lr = train_opts['learning_rate']
+        lbda = train_opts['regularization']
         layer_output = np.zeros((self.n_layers,), dtype=np.object) 
         mse = np.zeros(epochs)
         n_samples = X_train.shape[0]
         for epoch in range(epochs):
-            print('Epoch', epoch)
+#            print('Epoch', epoch)
             #forward propagation
             for (i,key) in enumerate(self.Layers):                
                 if i==0:
@@ -71,7 +72,7 @@ class MLP:
                 
             #backpropagation
             for (j, key) in enumerate(reversed(self.Layers)):
-                print(key, 'Update')
+#                print(key, 'Update')
                 if key=='out':
                     dy = layer_output[-1] - y_train
                     prev_layer = self.Layers[key]
@@ -86,20 +87,20 @@ class MLP:
                     prev_layer = self.Layers[key]
                 
                 if (j+1)==self.n_layers:
-                    dW = np.dot(X_train.T, dy)/n_samples
+                    dW = np.dot(X_train.T, dy)/n_samples + lbda * self.Layers[key].W
                 else:
 #                    print('alpha_l-1')
 #                    print(self.Layers[key].X.T)
 #                    print('delta')
 #                    print(dy)
-                    dW = np.dot(self.Layers[key].X.T, dy)/n_samples
+                    dW = np.dot(self.Layers[key].X.T, dy)/n_samples + lbda * self.Layers[key].W
                 db = np.mean(dy, axis=0)
                 
-                print('dW')
-                print(dW)
-                print('db')
-                print(db)
-                print('_______________________________________')
+#                print('dW')
+#                print(dW)
+#                print('db')
+#                print(db)
+#                print('_______________________________________')
                 self.Layers[key].update_params(eta=lr, dW=dW, db=db, dy=dy)
                 
             mse[epoch] = np.mean(0.5*(y_train - layer_output[-1]).flatten()**2)
@@ -118,7 +119,7 @@ class MLP:
             layer_output[i] = layer.get_output(X_in=layer_input)
         return layer_output[-1]
 
-def test_1(n_samples, n_features, n_epochs, lr):
+def test_1(n_samples, n_features, n_epochs, lr, lmbda):
     a = 0.5
     b = 6.
     c = 9.
@@ -127,11 +128,12 @@ def test_1(n_samples, n_features, n_epochs, lr):
     
     model = MLP(train_features=1, hidden_layer_sizes=(5,), n_out=1)
     
-    X_train = np.random.uniform(1,10,size=(n_samples,n_features))
+#    X_train = np.random.uniform(1,10,size=(n_samples,n_features))
+    X_train = np.linspace(start=1, stop=10, num=n_samples).reshape(n_samples,n_features)
     y_train = a*X_train**2 - b*X_train + c
     #y_train = X_train**2
     
-    train_opts = {'epochs':n_epochs, 'learning_rate':lr}
+    train_opts = {'epochs':n_epochs, 'learning_rate':lr, 'regularization':lmbda}
     
     mse = model.train_on_data(X_train=X_train, y_train=y_train, train_opts=train_opts)
     
@@ -150,7 +152,7 @@ def test_1(n_samples, n_features, n_epochs, lr):
     
 def test_2(n_epochs=5, lr=0.1):
     train_opts = {'epochs':n_epochs, 'learning_rate':lr}
-    x = np.array([2,3]).reshape(2,1)
+    x = np.linspace(start=1, stop=10, num=10).reshape(10,1)
     y = x**2
     model = MLP(train_features=1, hidden_layer_sizes=(3,), n_out=1)
     
@@ -161,10 +163,11 @@ def test_2(n_epochs=5, lr=0.1):
 if __name__=='__main__':
     n_samples=100
     n_features=1
-    n_epochs = 1000
-    lr = 0.001
-    #test_1(n_samples=n_samples, n_features=n_features, n_epochs=n_epochs, lr=lr)
-    test_2()
+    n_epochs = 100000
+    lr = 0.01
+    lmbda = 0.01
+    test_1(n_samples=n_samples, n_features=n_features, n_epochs=n_epochs, lr=lr, lmbda=lmbda)
+    #test_2()
     
    
     
