@@ -24,10 +24,10 @@ class Layer:
     
     def __init__(self, X_in, n_input, n_nodes, activation, seed):
         np.random.seed(seed=seed)
-#        self.W = np.random.uniform(size=(n_input ,n_nodes))
-#        self.b = np.random.uniform(size=(n_nodes))
-        self.W = np.ones((n_input ,n_nodes))
-        self.b = np.zeros((n_nodes))
+        self.W = np.random.uniform(low=-0.2, high=0.2, size=(n_input ,n_nodes))
+        self.b = np.random.uniform(low=-0.2, high=0.2, size=(n_nodes))
+#        self.W = np.ones((n_input ,n_nodes))
+#        self.b = np.zeros((n_nodes))
         self.dy = None
         self.X = X_in
         
@@ -108,7 +108,8 @@ class HiddenLayer(Layer):
         self.draw_dropout_sample(dropout_rate=dropout_rate)
     
     def draw_dropout_sample(self, dropout_rate):
-        self.R = np.random.binomial(size=(self.n_input, self.n_nodes), n=1, p=1-dropout_rate)
+        #self.R = np.random.binomial(size=(self.n_input, self.n_nodes), n=1, p=1-dropout_rate)
+        self.R = np.random.binomial(size=(self.n_nodes), n=1, p=1-dropout_rate)
         
     def print_w(self):
         print(self.W)
