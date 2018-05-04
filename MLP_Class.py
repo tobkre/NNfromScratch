@@ -24,7 +24,7 @@ class MLP:
         act_fcn (): activation function
         act_der (): derivative of actual activation function
     """
-    def __init__(self, train_features, hidden_layer_sizes=(5,), n_out=1, dropout_rate=0.):
+    def __init__(self, train_features, hidden_layer_sizes=(5,), n_out=1, dropout_rate=0., learning_rate='constant', verbose=False):
         self.n_hidden_layers = len(hidden_layer_sizes)
         self.n_nodes_input = train_features
         self.n_nodes_output = n_out
@@ -32,6 +32,8 @@ class MLP:
         self.n_layers = self.n_hidden_layers + 1
         self.Layers = OrderedDict()
         self.dropout_rate = dropout_rate
+        self.lr_rule = learning_rate
+        self.verbose = verbose
         
         self.__init_model()
         
@@ -41,7 +43,7 @@ class MLP:
         for i in range(self.n_hidden_layers):
             idf='hidden'+str(i)
             n_nodes = self.n_nodes_hidden[i]
-            layer = HiddenLayer(n_input=n_in, n_nodes=n_nodes, dropout_rate=dropout_rate, activation='tanh')
+            layer = HiddenLayer(n_input=n_in, n_nodes=n_nodes, dropout_rate=dropout_rate, activation='sigmoid')
             n_in = n_nodes
             self.Layers[idf] = layer
         out_layer = OutputLayer(n_input = n_in, n_nodes=self.n_nodes_output)
@@ -106,20 +108,28 @@ class MLP:
 #                print(dW)
 #                print('db')
 #                print(db)
-#                print('_______________________________________')
+                
                 self.Layers[key].update_params(eta=lr, dW=dW, db=db, dy=dy)
                 if key!='out':
                     self.Layers[key].draw_dropout_sample(dropout_rate=dropout_rate)
-                
+#                print('_______________________________________')
 #            mse[epoch] = np.mean(0.5*(y_train - layer_output[-1]).flatten()**2)
-            mse.append(np.mean(0.5*(y_train - layer_output[-1]).flatten()**2))
+            #print(layer_output[-1].shape)
+            #print(y_train.shape)
+            #print()
+            
+            loss = np.mean(0.5*(y_train - layer_output[-1]).flatten()**2)
+            if self.verbose:
+                print('Iteration', epoch+1,', loss =',loss)
+                
+            mse.append(loss)
             lrs.append(lr)
             
-            if epoch>=1 and mse[epoch]>mse[epoch-1]:
+            if epoch>=1 and mse[epoch]>mse[epoch-1] and self.lr_rule!='constant':
                 lr = lr/2
                
             if epoch>=1 and abs(mse[epoch]-mse[epoch-1]) < tol:
-                print('Tolerance')
+                print('Training stopped after', epoch, 'epochs. Loss less than tol=',tol)
                 break                
         return mse, lrs
     
@@ -133,40 +143,66 @@ class MLP:
                 layer_input = layer_output[i-1]
             layer_output[i] = layer.get_output(X_in=layer_input)
         return layer_output[-1]
+    
+    def objective_topology(self, X, y):
+        yhat = self.predict(X)
+        loss = self.objective_loss(y, yhat)
+        zetas = np.linspace(start=-1., stop=1.0, num=50)
+        for (i,zeta) in zetas:
+            for key in self.Layers:
+                #dW = self.Layers[key].W + zeta * W_sample
+            
+        #self.Layers[key].update_params(eta=lr, dW=dW, db=db, dy=dy)
+                pass
 
+    def objective_loss(self, y, yhat):
+        return np.mean(0.5*(y - yhat).flatten()**2)
+    
 def test_1(n_samples, n_features, n_epochs, lr, lmbda, tol, dropout):
     a = 0.5
     b = 6.
     c = 9.
-        
-    model = MLP(train_features=1, hidden_layer_sizes=(5,7), n_out=1, dropout_rate=dropout)
+    scheduler = 'constant'
+
+    full_model = MLP(train_features=1, hidden_layer_sizes=(20,), n_out=1,
+                dropout_rate=0, learning_rate=scheduler, verbose=False)        
+
+    sparse_model = MLP(train_features=1, hidden_layer_sizes=(20,), n_out=1,
+                dropout_rate=dropout, learning_rate=scheduler, verbose=False)
     
 #    X_train = np.random.uniform(1,10,size=(n_samples,n_features))
-    X_train = np.linspace(start=1, stop=10, num=n_samples).reshape(n_samples,n_features)
+    X_train = np.linspace(start=1, stop=10, num=n_samples).reshape(n_samples, n_features)
     y_train = a*X_train**2 - b*X_train + c
     #y_train = X_train**2
     
     train_opts = {'epochs':n_epochs, 'learning_rate':lr, 'regularization':lmbda, 'tolerance':tol}
     
-    mse, lrs = model.train_on_data(X_train=X_train, y_train=y_train, train_opts=train_opts)
+    print('Train fully connected net')
+    mse_full, lrs_full = full_model.train_on_data(X_train=X_train, y_train=y_train, train_opts=train_opts)
+    print('Train dropout net')
+    mse_sparse, lrs_sparse = sparse_model.train_on_data(X_train=X_train, y_train=y_train, train_opts=train_opts)
     
     import matplotlib.pyplot as plt
     plt.figure()
     plt.title('MSE')
-    plt.plot(mse)
+    plt.plot(mse_sparse, label='dropout')
+    plt.legend(loc='best')
     
     plt.figure()
     plt.title('learning rate')
-    plt.plot(lrs)
+    plt.plot(lrs_sparse, label='dropout')
+    plt.legend(loc='best')
     
     idx_train = np.argsort(X_train, axis=0).flatten()
     X_train = X_train[idx_train, :]
     y_train = y_train[idx_train]
     
     plt.figure()
-    plt.title('Train')
-    plt.plot(X_train, y_train, '*')
-    plt.plot(X_train, model.predict(X=X_train))
+    plt.title('Training Data')
+    plt.plot(X_train, y_train, '*', label='Train Data')
+    plt.plot(X_train, full_model.predict(X=X_train), label='full net')
+    plt.plot(X_train, sparse_model.predict(X=X_train), label='with dropout')
+    plt.legend(loc='best')
     
 def test_2(n_epochs=5, lr=0.1):
     train_opts = {'epochs':n_epochs, 'learning_rate':lr}
@@ -179,14 +215,14 @@ def test_2(n_epochs=5, lr=0.1):
     print(mse)
     
 if __name__=='__main__':
-    n_samples=1000
+    n_samples=100#0
     n_features=1
-    n_epochs = 100000
+    n_epochs = 1000000
     lr = 0.05
-    lmbda = 0.001
-    tol = 1e-7
+    lmbda = 0
+    tol = 1e-9
     
-    dropout = 0.#4
+    dropout = 0.2
     test_1(n_samples=n_samples, n_features=n_features, n_epochs=n_epochs, lr=lr, lmbda=lmbda, tol=tol, dropout=dropout)
     #test_2()
     

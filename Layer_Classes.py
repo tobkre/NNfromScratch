@@ -20,16 +20,18 @@ class Layer:
         b       (): Vector of biases 
         act_fcn (): activation function
         act_der (): derivative of actual activation function
+        R       (): dropout matrix (kept as 1 in output layer to disable dropout there)
     """
     
     def __init__(self, X_in, n_input, n_nodes, activation, seed):
         np.random.seed(seed=seed)
-        self.W = np.random.uniform(low=-0.2, high=0.2, size=(n_input ,n_nodes))
-        self.b = np.random.uniform(low=-0.2, high=0.2, size=(n_nodes))
+        self.W = np.random.uniform(low=-0.02, high=0.02, size=(n_input ,n_nodes))
+        self.b = np.random.uniform(low=-0.02, high=0.02, size=(n_nodes))
 #        self.W = np.ones((n_input ,n_nodes))
 #        self.b = np.zeros((n_nodes))
         self.dy = None
         self.X = X_in
+        self.R = 1
         
         if activation=='linear':
             self.act_fcn = lambda x: self.__lin_act(x)
@@ -47,12 +49,12 @@ class Layer:
             raise ValueError('Unknown activation function:',activation)
         
     def update_params(self, eta, dW, db, dy):
-        self.W = self.W - eta * dW
+        self.W = self.W - eta * (dW * self.R)
         self.b = self.b - eta * db
         self.dy = dy
     
-    def fwd_prop(self):
-        return np.dot(self.X, self.W) + self.b
+    def fwd_prop(self, dropout=1):
+        return np.dot(self.X, self.W*dropout) + self.b
     
     def __lin_act(self, arg):
         return arg
@@ -108,8 +110,8 @@ class HiddenLayer(Layer):
         self.draw_dropout_sample(dropout_rate=dropout_rate)
     
     def draw_dropout_sample(self, dropout_rate):
-        #self.R = np.random.binomial(size=(self.n_input, self.n_nodes), n=1, p=1-dropout_rate)
-        self.R = np.random.binomial(size=(self.n_nodes), n=1, p=1-dropout_rate)
+        self.R = np.random.binomial(size=(self.n_input, self.n_nodes), n=1, p=1-dropout_rate)
+        #self.R = np.random.binomial(size=(self.n_nodes), n=1, p=1-dropout_rate)
         
     def print_w(self):
         print(self.W)
@@ -117,7 +119,8 @@ class HiddenLayer(Layer):
     def get_output(self, X_in=None):
         if X_in is not None:
             self.X = X_in
-        return self.act_fcn(self.fwd_prop()) * self.R
+        return self.act_fcn(self.fwd_prop(dropout=self.R))
+        #return self.act_fcn(self.fwd_prop(dropout=self.R)) * self.R
         
 
 class OutputLayer(Layer):
