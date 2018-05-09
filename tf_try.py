@@ -22,7 +22,7 @@ if __name__=='__main__':
     batch_y = batch_y.ravel()
     
     n_epochs = 30000
-    lr = 0.005
+    lr = 0.05
     lmbda = 1e-5
     tol=1e-4
     
@@ -43,7 +43,7 @@ if __name__=='__main__':
     
     layer1 = tf.add(tf.matmul(x, weights['hidden1']), biases['hidden1'])
     layer1 = tf.nn.tanh(layer1)
-    layer1 = tf.nn.dropout(layer1, keep_prob=0.8)
+    #layer1 = tf.nn.dropout(layer1, keep_prob=0.8)
 #    layer2 = tf.add(tf.matmul(layer1, weights['hidden2']), biases['hidden2'])
 #    layer2 = tf.nn.tanh(layer2)
     yhat = tf.add(tf.matmul(layer1, weights['out']), biases['out'])

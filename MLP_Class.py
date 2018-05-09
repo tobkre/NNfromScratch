@@ -125,10 +125,13 @@ class MLP:
             mse.append(loss)
             lrs.append(lr)
             
-            if epoch>=1 and mse[epoch]>mse[epoch-1] and self.lr_rule!='constant':
+            if epoch>=2 and mse[epoch]>mse[epoch-1] and mse[epoch-1]>mse[epoch-2] and self.lr_rule!='adaptive':
                 lr = lr/2
+                
+#            if epoch>=2 and mse[epoch]<mse[epoch-1] and mse[epoch-1]<mse[epoch-2] and self.lr_rule=='adaptive':
+#                lr = lr*1.5
                
-            if epoch>=1 and abs(mse[epoch]-mse[epoch-1]) < tol:
+            if epoch>=2 and abs(mse[epoch]-mse[epoch-1]) < tol and abs(mse[epoch-1]-mse[epoch-2]) < tol:
                 print('Training stopped after', epoch, 'epochs. Loss less than tol=',tol)
                 break                
         return mse, lrs
@@ -145,15 +148,24 @@ class MLP:
         return layer_output[-1]
     
     def objective_topology(self, X, y):
-        yhat = self.predict(X)
-        loss = self.objective_loss(y, yhat)
+        #yhat = self.predict(X)
+        #loss = self.objective_loss(y, yhat)
         zetas = np.linspace(start=-1., stop=1.0, num=50)
-        for (i,zeta) in zetas:
-            for key in self.Layers:
-                #dW = self.Layers[key].W + zeta * W_sample
+        losses = np.zeros_like(zetas)
+        for (i,zeta) in enumerate(zetas):
+            for key in self.Layers:               
+                dW = self.Layers[key].Wsave + zeta * self.Layers[key].W_sample
+                db = self.Layers[key].bsave + zeta * self.Layers[key].b_sample
+#                print(dW.shape)
+                self.Layers[key].set_params(W=dW, b=db)
+                yhat = self.predict(X)
+            loss = self.objective_loss(y, yhat)
+            losses[i] = loss
             
-        #self.Layers[key].update_params(eta=lr, dW=dW, db=db, dy=dy)
-                pass
+            for key in self.Layers:
+                self.Layers[key].reset_params()
+                
+        return losses, zetas
 
     def objective_loss(self, y, yhat):
         return np.mean(0.5*(y - yhat).flatten()**2)
@@ -162,7 +174,7 @@ def test_1(n_samples, n_features, n_epochs, lr, lmbda, tol, dropout):
     a = 0.5
     b = 6.
     c = 9.
-    scheduler = 'constant'
+    scheduler = 'adaptive'
 
     full_model = MLP(train_features=1, hidden_layer_sizes=(20,), n_out=1,
                 dropout_rate=0, learning_rate=scheduler, verbose=False)        
@@ -179,8 +191,20 @@ def test_1(n_samples, n_features, n_epochs, lr, lmbda, tol, dropout):
     
     print('Train fully connected net')
     mse_full, lrs_full = full_model.train_on_data(X_train=X_train, y_train=y_train, train_opts=train_opts)
+    
+    for key in full_model.Layers:
+        W_init = full_model.Layers[key].W
+        b_init = full_model.Layers[key].b
+        full_model.Layers[key].safe_params(W=W_init, b=b_init)
+    
+    
     print('Train dropout net')
     mse_sparse, lrs_sparse = sparse_model.train_on_data(X_train=X_train, y_train=y_train, train_opts=train_opts)
+    
+    for key in sparse_model.Layers:
+        W_init = sparse_model.Layers[key].W
+        b_init = sparse_model.Layers[key].b
+        sparse_model.Layers[key].safe_params(W=W_init, b=b_init)
     
     import matplotlib.pyplot as plt
     plt.figure()
@@ -204,6 +228,19 @@ def test_1(n_samples, n_features, n_epochs, lr, lmbda, tol, dropout):
     plt.plot(X_train, sparse_model.predict(X=X_train), label='with dropout')
     plt.legend(loc='best')
     
+    print('Fully connected net error topology')
+    full_top, zetas = full_model.objective_topology(X=X_train, y=y_train)
+    plt.figure()
+    plt.title('Topology')
+    plt.plot(zetas, full_top)
+    
+    print('Dropout net error topology')
+    sparse_top, zetas = sparse_model.objective_topology(X=X_train, y=y_train)
+    plt.figure()
+    plt.title('Topology')
+    plt.plot(zetas, sparse_top)
+    
+    
 def test_2(n_epochs=5, lr=0.1):
     train_opts = {'epochs':n_epochs, 'learning_rate':lr}
     x = np.linspace(start=1, stop=10, num=10).reshape(10,1)
@@ -217,12 +254,12 @@ def test_2(n_epochs=5, lr=0.1):
 if __name__=='__main__':
     n_samples=100#0
     n_features=1
-    n_epochs = 1000000
-    lr = 0.05
+    n_epochs = 10000000
+    lr = 0.005 
     lmbda = 0
     tol = 1e-9
     
-    dropout = 0.2
+    dropout = 0.3
     test_1(n_samples=n_samples, n_features=n_features, n_epochs=n_epochs, lr=lr, lmbda=lmbda, tol=tol, dropout=dropout)
     #test_2()
     

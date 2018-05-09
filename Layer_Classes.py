@@ -27,6 +27,10 @@ class Layer:
         np.random.seed(seed=seed)
         self.W = np.random.uniform(low=-0.02, high=0.02, size=(n_input ,n_nodes))
         self.b = np.random.uniform(low=-0.02, high=0.02, size=(n_nodes))
+        self.W_sample = np.random.uniform(low=-0.2, high=0.2, size=(n_input ,n_nodes))
+        self.b_sample = np.random.uniform(low=-0.2, high=0.2, size=(n_nodes))
+#        self.Wsave = self.W
+#        self.bsave = self.b
 #        self.W = np.ones((n_input ,n_nodes))
 #        self.b = np.zeros((n_nodes))
         self.dy = None
@@ -52,7 +56,20 @@ class Layer:
         self.W = self.W - eta * (dW * self.R)
         self.b = self.b - eta * db
         self.dy = dy
-    
+
+    def set_params(self, W, b):
+        self.W = W
+        self.b = b
+        
+    def safe_params(self, W, b):
+        self.Wsave = W
+        self.bsave = b
+        print('Save')
+        
+    def reset_params(self):
+        self.W = self.Wsave
+        self.b = self.bsave
+        
     def fwd_prop(self, dropout=1):
         return np.dot(self.X, self.W*dropout) + self.b
     
